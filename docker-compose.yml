@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ideasprout_postgres
+    environment:
+      POSTGRES_DB: ideasprout
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ideasprout_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432" # host:container (host access only)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 512m
+    networks:
+      - ideasprout_net
+
+  backend:
+    image: ghcr.io/abhijeetgavali/ideasprout_backend:latest
+    container_name: ideasprout_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8082:8082"
+    environment:
+      # 🔥 FIXED: use container port 5432, not 5433
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ideasprout
+
+      PORT: 8082
+      NODE_ENV: production
+
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: 587
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: "Ideasprout Contact <contact@ideasprout.in>"
+
+    restart: unless-stopped
+    mem_limit: 512m
+    networks:
+      - ideasprout_net
+
+volumes:
+  ideasprout_postgres_data:
+
+networks:
+  ideasprout_net:
+    driver: bridge

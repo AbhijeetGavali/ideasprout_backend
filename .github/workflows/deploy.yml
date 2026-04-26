@@ -1,0 +1,66 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: abhijeetgavali/ideasprout_backend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Upload docker-compose.yml to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_KEY }}
+          source: ./docker-compose.yml
+          target: ~/ideasprout_backend
+
+      - name: Build and push Docker image
+        id: build-and-push
+        run: |
+          echo "${{ secrets.GHCR_PAT }}" | docker login ${{ env.REGISTRY }} --username ${{ github.actor }} --password-stdin
+          docker buildx build . \
+            --platform linux/amd64 \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --push
+
+      - name: pull and deploy on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            APP_DIR=~/ideasprout_backend
+            echo "Updating backend service only..."
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            # Export necessary environment variables
+            export REGISTRY=${{ env.REGISTRY }}
+            export IMAGE_NAME=${{ env.IMAGE_NAME }}
+            export GHCR_PAT=${{ secrets.GHCR_PAT }}
+            export GITHUB_ACTOR=${{ github.actor }}
+
+            export SMTP_USER=${{ secrets.SMTP_USER }}
+            export SMTP_PASS=${{ secrets.SMTP_PASS }}
+
+            echo "Logging into Docker registry and pulling latest image..."
+
+            # Docker login and pull
+            docker login $REGISTRY -u $GITHUB_ACTOR -p $GHCR_PAT
+            docker pull $REGISTRY/$IMAGE_NAME:latest
+
+            # Deploy backend service
+            docker-compose down --remove-orphans
+            docker-compose up -d --force-recreate
