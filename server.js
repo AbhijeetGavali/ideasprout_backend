@@ -6,6 +6,8 @@ const fastify = Fastify({ logger: true });
 
 await fastify.register(cors, {
   origin: ["https://ideasprout.in", "https://www.ideasprout.in"],
+  methods: ["POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
 });
 
 await fastify.register(contactRoutes);
