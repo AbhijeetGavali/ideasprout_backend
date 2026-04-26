@@ -47,7 +47,8 @@ export const contactController = {
       const subject = `[Demo Request] ${productLabel} — ${body.company} (${body.name})`;
       const { html, text } = buildEmail(body, productLabel);
 
-      await contactRepo.create(body);
+      const { name, email, phone, company, product, ...rest } = body;
+      await contactRepo.create({ product, name, email, phone, company, data: rest });
       await emailService.sendEmails(
         "contact@ideasprout.in",
         subject,
