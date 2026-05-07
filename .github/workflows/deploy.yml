@@ -62,5 +62,5 @@ jobs:
             docker pull $REGISTRY/$IMAGE_NAME:latest
 
             # Deploy backend service
-            docker-compose down --remove-orphans
-            docker-compose up -d --force-recreate
+            docker compose down --remove-orphans
+            docker compose up -d --force-recreate
